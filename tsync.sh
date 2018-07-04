@@ -37,7 +37,7 @@ filter() {
     [ ! -f "$dst/${dir#$src/}/${file%.*}.mp3" ] && { printf '%s\n' "$path" && continue; }
     # files that have changed (src is newer)
     [ "$path" -nt "$dst/${dir#$src/}/${file%.*}.mp3" ] && printf '%s\n' "$path"
-  done
+  done | tee /tmp/tsync.filter
 }
 
 transform() {
@@ -47,12 +47,18 @@ transform() {
   do
     dir=${path%/*}
     file=${path##*/}
-    printf 'mkdir -p "%s/%s"; ' $tmp "${dir#$src/}"
-    printf 'ffmpeg -v error -y -i "%s" -c:a libmp3lame -q:a 0 -c:v copy -id3v2_version 3 -write_id3v1 1 "%s/%s/%s.mp3"; ' "$path" $tmp "${dir#$src/}" "${file%.*}"
-    printf 'mkdir -p "%s/%s"; ' "$dst" "${dir#$src/}"
-    printf 'mv "%s/%s/%s.mp3" "%s/%s/"; ' $tmp "${dir#$src/}" "${file%.*}" "$dst" "${dir#$src/}"
-    printf 'echo "%s/%s/%s.mp3"' "$dst" "${dir#$src/}" "${file%.*}"
-    printf '\n'
+    if [ $dry ]
+    then
+      printf 'mkdir -p "%s/%s"; ' $tmp "${dir#$src/}"
+      printf 'touch "%s/%s/%s.mp3"' $tmp "${dir#$src/}" "${file%.*}"
+      printf '\n'
+    else
+      printf 'mkdir -p "%s/%s"; ' $tmp "${dir#$src/}"
+      # TODO handle finished/up-to-date mp3's in $tmp (don't transcode again)
+      printf 'ffmpeg -v error -y -i "%s" -c:a libmp3lame -q:a 0 -c:v copy -id3v2_version 3 -write_id3v1 1 "%s/%s/%s.mp3"; ' "$path" $tmp "${dir#$src/}" "${file%.*}"
+      printf 'echo "%s/%s/%s.mp3"' "$tmp" "${dir#$src/}" "${file%.*}"
+      printf '\n'
+    fi
   done
 }
 
@@ -65,7 +71,8 @@ sync() {
   # escape [ ] for rsync file lists.. why!?!?
   < /tmp/tsync.generate sed '\|.flac$|!d; s|\.flac$|\.mp3|; s|'"$src"'||; s|\[|\\[|; s|\]|\\]|' >/tmp/tsync.exclude
   < /tmp/tsync.generate sed '\|\.flac$|d; s|'"$src"'||' >/tmp/tsync.include
-  rsync ${dry:+-n} -rtv --delete --include-from /tmp/tsync.include --exclude-from /tmp/tsync.exclude --exclude .tsync --filter "-s *" "$src/" "$dst"
+  < /tmp/tsync.filter sed 's|\.flac$|\.mp3|; s|'"$src"'||' >>/tmp/tsync.include
+  rsync ${dry:+-n} -av --delete --include-from /tmp/tsync.include --exclude-from /tmp/tsync.exclude --filter "-s *" "$src/" $tmp/ "$dst"
 }
 
 generate |
