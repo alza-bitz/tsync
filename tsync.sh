@@ -13,7 +13,7 @@ else
 #  dry=true
 fi
 
-expected="ffmpeg rsync"
+expected="md5sum ffmpeg rsync"
 results=$(for cmd in $expected; do command -V $cmd; done)
 actual=$(printf "%s\n" "$results" | while read first _; do printf "%s%s" "$sep" "${first%%*:}"; sep=" "; done)
 [ "$expected" = "$actual" ] || { printf "Expected commands on PATH: %s, actual: %s\n" "$expected" "$actual" 1>&2; exit 1; }
@@ -33,10 +33,13 @@ filter() {
     file=${path##*/}
     # files with valid src format
     [ "${path%.flac}" = "$path" ] && continue
+    # files that we know the checksum for
+    [ ! -f "$dst/${dir#$src/}/.tsync" ] && { printf '%s\n' "$path" && continue; }
     # files that don't exist in dst
     [ ! -f "$dst/${dir#$src/}/${file%.*}.mp3" ] && { printf '%s\n' "$path" && continue; }
-    # files that have changed (src is newer)
-    [ "$path" -nt "$dst/${dir#$src/}/${file%.*}.mp3" ] && printf '%s\n' "$path"
+    # files that have changed (checksum is different)
+    sed '\|'"$path"'$|h; $!d; x' "$dst/${dir#$src/}/.tsync" | tee /dev/stderr |
+    md5sum --status -c - || printf '%s\n' "$path"
   done
 }
 
@@ -51,6 +54,7 @@ transform() {
     printf 'ffmpeg -v error -y -i "%s" -c:a libmp3lame -q:a 0 -c:v copy -id3v2_version 3 -write_id3v1 1 "%s/%s/%s.mp3"; ' "$path" $tmp "${dir#$src/}" "${file%.*}"
     printf 'mkdir -p "%s/%s"; ' "$dst" "${dir#$src/}"
     printf 'mv "%s/%s/%s.mp3" "%s/%s/"; ' $tmp "${dir#$src/}" "${file%.*}" "$dst" "${dir#$src/}"
+    printf 'md5sum "%s" >> "%s/%s/.tsync"; ' "$path" "$dst" "${dir#$src/}"
     printf 'echo "%s/%s/%s.mp3"' "$dst" "${dir#$src/}" "${file%.*}"
     printf '\n'
   done
