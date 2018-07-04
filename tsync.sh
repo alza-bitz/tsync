@@ -13,7 +13,7 @@ else
 #  dry=true
 fi
 
-expected="ffmpeg rsync"
+expected="ffmpeg rsync pv"
 results=$(for cmd in $expected; do command -V $cmd; done)
 actual=$(printf "%s\n" "$results" | while read first _; do printf "%s%s" "$sep" "${first%%*:}"; sep=" "; done)
 [ "$expected" = "$actual" ] || { printf "Expected commands on PATH: %s, actual: %s\n" "$expected" "$actual" 1>&2; exit 1; }
@@ -40,6 +40,13 @@ filter() {
   done
 }
 
+count() {
+  { 
+    tee /dev/fd/3 |
+    wc -l >/tmp/tsync.count;
+  } 3>&1
+}
+
 transform() {
   # posix printf doesn't have %q for escaping $ etc, so use sed instead
   sed 's|\$|\\$|' |
@@ -57,8 +64,10 @@ transform() {
 }
 
 run() {
+  # TODO need a posix pipefail equivalent to get correct error handling with pv!
   tr '\n' '\0' |
-  xargs -P$parallel -I {} -0 ${dry:+echo} sh -c "(set -e; {}); [ \$? -ne 0 ] && exit 255; exit 0"
+  xargs -P$parallel -I {} -0 ${dry:+echo} sh -c "(set -e; {}); [ \$? -ne 0 ] && exit 255; exit 0" | 
+  pv ${dry:+-q} -l -s $(cat /tmp/tsync.count)
 }
 
 sync() {
@@ -70,7 +79,9 @@ sync() {
 
 generate |
 filter |
-transform |
-run
+count |
+transform > /tmp/tsync.save
+
+< /tmp/tsync.save run
 
 sync
