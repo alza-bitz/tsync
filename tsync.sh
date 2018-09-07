@@ -2,19 +2,32 @@
 
 set -e
 
-if [ "$#" -lt "1" -o "$#" -gt "2" ]
-then
-  printf 'Usage: %s <source> <destination>\n' "$0"
+usage() {
+  printf 'Usage: %s [-d] <source> <destination>\n' "$0"
   exit 1
+}
+
+if [ "$#" -lt "2" -o "$#" -gt "3" ]
+then
+  usage
 else
+  if [ "$#" -eq "3" ]
+  then
+    if [ "$1" != "-d" ]
+    then
+      usage
+    else
+      dry=true
+      shift
+    fi
+  fi
   src="${1%/}"
   dst="${2%/}"
   parallel=8
-#  dry=true
 fi
 
 expected="ffmpeg rsync"
-results=$(for cmd in $expected; do command -V $cmd; done)
+results=$(set +e; for cmd in $expected; do command -V $cmd; done; set -e)
 actual=$(printf "%s\n" "$results" | while read first _; do printf "%s%s" "$sep" "${first%%*:}"; sep=" "; done)
 [ "$expected" = "$actual" ] || { printf "Expected commands on PATH: %s, actual: %s\n" "$expected" "$actual" 1>&2; exit 1; }
 
