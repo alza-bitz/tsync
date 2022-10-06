@@ -60,8 +60,9 @@ transform() {
   do
     dir=${path%/*}
     file=${path##*/}
+    printf 'organization=$(ffprobe -loglevel error -show_entries format_tags=organization -of default=noprint_wrappers=1:nokey=1 "%s"); ' "$path"
     printf 'mkdir -p "%s/%s"; ' $tmp "${dir#$src/}"
-    printf 'ffmpeg -v error -y -i "%s" -c:a libmp3lame -q:a 0 -c:v copy -id3v2_version 3 -write_id3v1 1 "%s/%s/%s.mp3"; ' "$path" $tmp "${dir#$src/}" "${file%.*}"
+    printf 'ffmpeg -v error -y -i "%s" -c:a libmp3lame -q:a 0 -c:v copy -id3v2_version 3 -write_id3v1 1 -metadata organization= -metadata publisher="$organization" "%s/%s/%s.mp3"; ' "$path" $tmp "${dir#$src/}" "${file%.*}"
     printf 'mkdir -p "%s/%s"; ' "$dst" "${dir#$src/}"
     printf 'mv "%s/%s/%s.mp3" "%s/%s/"; ' $tmp "${dir#$src/}" "${file%.*}" "$dst" "${dir#$src/}"
     printf 'echo "%s/%s/%s.mp3"' "$dst" "${dir#$src/}" "${file%.*}"
