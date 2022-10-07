@@ -12,9 +12,9 @@ The ability to maintain a smaller, lossy copy of a lossless music collection. Fo
 
 ## Features
 
-- Transcoding of flac media files to mp3.
+- Transcoding of flac media files to mp3 (using the ffmpeg command).
 - All metadata and artwork will also be synchronized (using the ffmpeg command).
-- Synchronize any other files in the source directory structure, and also ensure that any files or directories that exist in the destination but not in the source are removed, in order to handle any file or directory renaming in the source since the last run (using the rsync command).
+- Ensure that any files or directories that exist in the destination but not in the source are removed, in order to handle any file or directory renaming in the source since the last run (using the rsync command).
 - Where an equivalent destination file already exists, it will only be synchronized if the source file is newer (by timestamp).
 - Transcoding is done in parallel using up to 8 concurrent ffmpeg processes.
 
