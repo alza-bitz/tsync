@@ -35,8 +35,7 @@ tmp=$(mktemp -d)
 trap "rm -rf $tmp; exit" INT TERM EXIT
 
 generate() {
-  # TODO some debate about whether to include .cue, .log, .m3u etc
-  find "$src"  | tee /tmp/tsync.generate
+  find "$src" -type d -o -name "*.flac" | tee /tmp/tsync.generate
 }
 
 filter() {
